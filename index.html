@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<body>
+    <h1>VEG SHOP</h1>
+
+    <div class="input-section">
+        <label for="veg-name">Name:</label>
+        <input type="text" id="veg-name" placeholder="Enter vegetable name"><br><br>
+
+        <label for="veg-price">Price:</label>
+        <input type="number" id="veg-price" placeholder="Enter price per KG" min="0"><br><br>
+
+        <label for="veg-qty">Quantity:</label>
+        <input type="number" id="veg-qty" placeholder="Enter quantity in KG" min="1"><br><br>
+
+        <button onclick="addToShop()">ADD TO SHOP</button>
+    </div>
+
+ 
+
+    <div id="cart"></div>
+    <h3>Total: <span id="total-count">0</span></h3>
+    <script src="script.js"></script>
+</body>
+</html>
