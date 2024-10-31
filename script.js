@@ -1,140 +1,128 @@
-const apiUrl = 'https://crudcrud.com/api/600d00a2ddd145cba9b0f4f5d20d8ef5/vegetables';
+async function formSubmit(event) {
+  event.preventDefault();
+  const veg = {
+    name: event.target.name.value,
+    price: event.target.price.value,
+    quantity: parseInt(event.target.quantity.value),
+  };
 
-// Load cart and total count from CRUDCRUD or local storage
-let cart = JSON.parse(localStorage.getItem('cart')) || [];
-let totalCount = parseInt(localStorage.getItem('totalCount')) || 0;
+  //axios post
+  let res;
+  try {
+    res = await axios.post("apiKey/shop", veg);
+    console.log(res.data);
+  } catch (err) {
+    console.log("Error:", err);
+  }
+  
+  // Clearing the input fields after submission
+  document.getElementById("name").value = "";
+  document.getElementById("price").value = "";
+  document.getElementById("quantity").value = "";
 
-window.onload = function() {
-    fetch(apiUrl)
-    .then(response => response.json())
-    .then(data => {
-        cart = data;
-        totalCount = cart.length;
-        updateCart();
-    })
-    .catch(error => {
-        console.error('Error fetching data from CRUDCRUD:', error);
-        // Fallback to local storage data in case of an error
-        updateCart();
+  showOnScreen(res.data);
+  updateCount();
+}
+
+
+window.addEventListener("DOMContentLoaded", async () => {
+  try {
+    const res = await axios.get("apiKey/shop"); // get
+    res.data.forEach((veg) => {
+      showOnScreen(veg);
     });
-};
+    updateCount();
+  } catch (err) {
+    console.log("Error:", err.message);
+  }
+});
 
-function addToShop() {
-    const name = document.getElementById('veg-name').value.trim();
-    const price = parseFloat(document.getElementById('veg-price').value);
-    const quantity = parseInt(document.getElementById('veg-qty').value);
+function showOnScreen(veg) {
+  // Create a list item
+  const item = document.createElement("li");
+  item.innerHTML = `${veg.name} Rs. ${veg.price} ${veg.quantity} KG`;
 
-    if (name && price > 0 && quantity > 0) {
-        const existingItem = cart.find(item => item.name.toLowerCase() === name.toLowerCase());
+  const input = document.createElement("input");
+  input.setAttribute("type", "number");
+  input.setAttribute("min", "1");
+  input.setAttribute("placeholder", "Amount");
+  item.appendChild(input);
 
-        if (existingItem) {
-            existingItem.quantity += quantity;
-            updateVegetable(existingItem._id, existingItem); // Update existing item in CRUDCRUD
-        } else {
-            const vegetable = { name, price, quantity };
-            postVegetable(vegetable); // Add new item to CRUDCRUD
-        }
+  const buyBtn = document.createElement("button");
+  buyBtn.textContent = "Buy";
+  item.appendChild(buyBtn);
 
-        totalCount++;
-        updateCart();
-        clearInputs();
+  const delBtn = document.createElement("button");
+  delBtn.textContent = "Delete";
+  item.appendChild(delBtn);
+
+  const vegList = document.querySelector("ul");
+  vegList.appendChild(item);
+
+  delBtn.addEventListener("click", (event) => {
+    remove(event, vegList, veg);
+  });
+
+  buyBtn.addEventListener("click", () => {
+    buyItem(veg, input, item, vegList);
+  });
+}
+
+function updateCount() {
+  const vegList = document.querySelector("ul");
+  const totalElement = document.getElementById("total");
+  const total = vegList.children.length;
+  totalElement.textContent = `Total Items: ${total}`;
+}
+
+async function remove(event, vegList, veg) {
+  vegList.removeChild(event.target.parentElement);
+  updateCount();
+  await deleteItem(veg);
+}
+
+function buyItem(veg, input, item, vegList) {
+  const buyAmt = parseInt(input.value);
+  const currentQty = parseInt(veg.quantity);
+  if (!isNaN(buyAmt) && buyAmt > 0) {
+    if (buyAmt <= currentQty) {
+      veg.quantity = currentQty - buyAmt;
+      item.firstChild.nodeValue = `${veg.name} Rs. ${veg.price} ${veg.quantity} KG`;
+      input.value = "";
+
+      if (veg.quantity === 0) {
+        vegList.removeChild(item);
+        deleteItem(veg);
+        updateCount();
+      } else {
+        updateQty(veg);
+      }
     } else {
-        alert('Please enter valid details');
+      alert("Not Enough Quantity.");
     }
+  } else {
+    alert("Please Enter Valid Quantity.");
+  }
 }
 
-function postVegetable(vegetable) {
-    fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(vegetable),
-    })
-    .then(response => response.json())
-    .then(data => {
-        cart.push(data); // Add the new vegetable to the local cart array
-        updateCart();
-    })
-    .catch(error => {
-        console.error('Error adding vegetable to CRUDCRUD:', error);
+async function updateQty(veg) {
+  try {
+    const res = await axios.put(`apiKey/shop/${veg._id}`, {
+      name: veg.name,
+      price: veg.price,
+      quantity: veg.quantity,
     });
+    console.log(res);
+  } catch (err) {
+    console.log("Error:", err.message);
+  }
 }
 
-function updateVegetable(id, updatedVegetable) {
-    fetch(`${apiUrl}/${id}`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedVegetable),
-    })
-    .then(() => {
-        updateCart();
-    })
-    .catch(error => {
-        console.error('Error updating vegetable in CRUDCRUD:', error);
-    });
-}
-
-function deleteVegetable(index) {
-    const id = cart[index]._id;
-    fetch(`${apiUrl}/${id}`, {
-        method: 'DELETE',
-    })
-    .then(() => {
-        cart.splice(index, 1);
-        totalCount--;
-        updateCart();
-    })
-    .catch(error => {
-        console.error('Error deleting vegetable from CRUDCRUD:', error);
-    });
-}
-
-function updateCart() {
-    const cartDiv = document.getElementById('cart');
-    cartDiv.innerHTML = ''; // Clear the cart before updating
-
-    cart.forEach((item, index) => {
-        const cartItemDiv = document.createElement('div');
-        cartItemDiv.innerHTML = `
-            <span>${item.name} RS: ${item.price} ${item.quantity}KG</span>
-            <input type="number" value="1" min="1" id="qty-${index}">
-            <button onclick="buyItem(${index})">Buy</button>
-            <button onclick="deleteVegetable(${index})">Delete</button>
-        `;
-        cartDiv.appendChild(cartItemDiv);
-    });
-
-    document.getElementById('total-count').innerText = totalCount;
-
-    // Save to local storage
-    localStorage.setItem('cart', JSON.stringify(cart));
-    localStorage.setItem('totalCount', totalCount);
-}
-
-function buyItem(index) {
-    const newQuantity = parseInt(document.getElementById(`qty-${index}`).value);
-    if (newQuantity && newQuantity > 0) {
-        if (newQuantity > cart[index].quantity) {
-            alert('Quantity exceeds available amount');
-            return;
-        }
-        cart[index].quantity -= newQuantity;
-        if (cart[index].quantity <= 0) {
-            deleteVegetable(index);
-        } else {
-            updateVegetable(cart[index]._id, cart[index]); // Update in CRUDCRUD
-            updateCart();
-        }
-    } else {
-        alert('Please enter a valid quantity');
-    }
-}
-
-function clearInputs() {
-    document.getElementById('veg-name').value = '';
-    document.getElementById('veg-price').value = '';
-    document.getElementById('veg-qty').value = '';
+async function deleteItem(veg) {
+  try {
+    const res = await axios.delete(`apiKey/shop/${veg._id}`);
+    console.log(res);
+  } catch (err) {
+    console.log("Error:", err.message);
+  }
 }
